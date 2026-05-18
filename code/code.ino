@@ -186,6 +186,7 @@ void logSerial() {
 // ============================================================
 void setup() {
   Serial.begin(9600);
+  delay(2000); // Waktu untuk membuka Serial Monitor setelah reset
 
   // Inisialisasi pin
   pinMode(FAN_PIN, OUTPUT);
