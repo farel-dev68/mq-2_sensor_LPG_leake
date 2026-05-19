@@ -5,6 +5,12 @@
 #define MQ6_PIN A0
 #define FAN_PIN 9
 
+//pwm values for fan speed
+#define FAN_OFF 0 // 0% PWM
+#define FAN_30PCT 76 // 255 * 0.30 ≈ 76
+#define FAN_60PCT 153 // 255 * 0.60 ≈ 153
+#define FAN_100PCT 255 // 255 * 1.00 = 255
+
 //Kalibrasi
 #define RL 10.0
 #define SAMPLE_COUNT 60
@@ -34,10 +40,10 @@ float calcPPM(float rs_ro_ratio) {
 void updateCalibrationLCD(int sample, int total) {
   int progress = map(sample, 0, total, 0, 16);
   lcd.setCursor(0, 0);
-  lcd.print("Kalibrasi....");
+  lcd.print("  Kalibrasi...  ");
   lcd.setCursor(0, 1);
   for (int i = 0; i < 16; i++) {
-    lcd.print(i < progress ? '#' : '.');
+    lcd.print(i < progress ? '#' : ' ');
   }
 }
 
@@ -137,14 +143,42 @@ void setup() {
   pinMode(FAN_PIN, OUTPUT);
   analogWrite(FAN_PIN, 0); // Matikan kipas saat startup
 
-  lcd.begin(16, 2);
+  lcd.init();
   lcd.backlight();
-  lcd.setCursor(0, 0);
-  lcd.print("Gas Monitor");
-  lcd.setCursor(0, 1);
-  lcd.print("  MQ-6 + Fan    ");
+  lcd.clear();
+  printCentered("Gas Monitor", 0);
+  printCentered("MQ-6 Sensor", 1);
   delay(1500);
   lcd.clear();
 
   calibrateSensor();
+}
+
+void loop() {
+  int adcVal = analogRead(MQ6_PIN);
+  float rs = getRs(adcVal);
+  float rs_ro_ratio = rs / R0;
+  ppmValue = calcPPM(rs_ro_ratio);
+
+
+  if (ppmValue < 200) {
+    condition = 1; // Aman
+    fanSpeed = FAN_OFF;
+  } else if (ppmValue < 500) {
+    condition = 2; // Waspada
+    fanSpeed = FAN_30PCT;
+  } else if (ppmValue < 1500) {
+    condition = 3; // Bahaya
+    fanSpeed = FAN_60PCT;
+  } else {
+    condition = 4; // Darurat
+    fanSpeed = FAN_100PCT;
+  }
+
+  analogWrite(FAN_PIN, fanSpeed);
+
+  updateLCD();
+  logSerial();
+  
+  delay(2000); // Update setiap 2 detik
 }
